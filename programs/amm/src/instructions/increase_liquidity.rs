@@ -230,3 +230,55 @@ pub fn calculate_latest_token_fees(
     msg!("calculate_latest_token_fees fee_growth_delta:{}, fee_growth_inside_latest_x64:{}, fee_growth_inside_last_x64:{}, liquidity:{}", fee_growth_delta, fee_growth_inside_latest_x64, fee_growth_inside_last_x64, liquidity);
     last_total_fees.checked_add(fee_growth_delta).unwrap()
 }
+
+#[cfg(test)]
+mod vulnerability_tests {
+    use super::calculate_latest_token_fees;
+    use crate::libraries::{big_num::U128, fixed_point_64, full_math::MulDiv};
+
+    #[test]
+    fn test_calculate_latest_token_fees_overflow_scenario() {
+        // 1. Define input values
+        let last_total_fees: u64 = 0;
+        let fee_growth_inside_last_x64: u128 = 0;
+        let liquidity: u128 = 1_u128 << 60; // 2^60
+        let fee_growth_inside_latest_x64: u128 = ((1_u128 << 64) - 1) << 4; // (2^64 - 1) * 2^4 = 2^68 - 2^4
+        let q64_val: u128 = 1_u128 << 64; // Represents fixed_point_64::Q64
+
+        // 2. Replicate the calculation for `fee_growth_delta`
+        let fee_growth_val = fee_growth_inside_latest_x64.wrapping_sub(fee_growth_inside_last_x64);
+        let expected_intermediate_result_before_to_underflow = U128::from(fee_growth_val)
+            .mul_div_floor(U128::from(liquidity), U128::from(q64_val))
+            .unwrap();
+
+        // This intermediate result should be U128::from(u64::MAX)
+        // u64::MAX is (1_u128 << 64) - 1
+        assert_eq!(
+            expected_intermediate_result_before_to_underflow,
+            U128::from((1_u128 << 64) - 1),
+            "Intermediate result before to_underflow_u64 should be u64::MAX"
+        );
+
+        let fee_growth_delta = expected_intermediate_result_before_to_underflow.to_underflow_u64();
+        assert_eq!(
+            fee_growth_delta, 0,
+            "fee_growth_delta should be 0 due to to_underflow_u64 behavior at u64::MAX"
+        );
+
+        // 3. Call `calculate_latest_token_fees` with the defined inputs.
+        // Ensure fixed_point_64::Q64 is correctly referenced or its value passed.
+        // The original function uses fixed_point_64::Q64 directly.
+        let actual_result = calculate_latest_token_fees(
+            last_total_fees,
+            fee_growth_inside_last_x64,
+            fee_growth_inside_latest_x64,
+            liquidity,
+        );
+
+        // 4. Assert that the final result of `calculate_latest_token_fees` is `0`.
+        assert_eq!(
+            actual_result, 0,
+            "Final result should be 0 when fee_growth_delta is 0 and last_total_fees is 0"
+        );
+    }
+}
