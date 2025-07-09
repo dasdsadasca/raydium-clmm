@@ -430,11 +430,11 @@ pub fn get_fee_growth_inside(
         )
     };
     let fee_growth_inside_0_x64 = fee_growth_global_0_x64
-        .wrapping_sub(fee_growth_below_0_x64)
-        .wrapping_sub(fee_growth_above_0_x64);
+        .saturating_sub(fee_growth_below_0_x64)
+        .saturating_sub(fee_growth_above_0_x64);
     let fee_growth_inside_1_x64 = fee_growth_global_1_x64
-        .wrapping_sub(fee_growth_below_1_x64)
-        .wrapping_sub(fee_growth_above_1_x64);
+        .saturating_sub(fee_growth_below_1_x64)
+        .saturating_sub(fee_growth_above_1_x64);
 
     (fee_growth_inside_0_x64, fee_growth_inside_1_x64)
 }
@@ -472,8 +472,8 @@ pub fn get_reward_growths_inside(
         };
         reward_growths_inside[i] = reward_infos[i]
             .reward_growth_global_x64
-            .wrapping_sub(reward_growths_below)
-            .wrapping_sub(reward_growths_above);
+            .saturating_sub(reward_growths_below)
+            .saturating_sub(reward_growths_above);
         #[cfg(feature = "enable-log")]
         msg!(
             "get_reward_growths_inside,i:{},reward_growth_global:{},reward_growth_below:{},reward_growth_above:{}, reward_growth_inside:{}",
